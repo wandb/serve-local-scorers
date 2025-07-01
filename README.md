@@ -1,4 +1,4 @@
-# Weave Scorer Server
+# Example Weave Scorer Server
 
 An example FastAPI server for [Weave local scorers](https://weave-docs.wandb.ai/guides/evaluation/weave_local_scorers/) with GPU acceleration and device auto-detection.
 
