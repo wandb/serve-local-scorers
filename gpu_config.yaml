@@ -1,0 +1,109 @@
+# GPU-Optimized Configuration for Weave Scorer Server
+# Automatically detected and optimized settings for different devices
+
+# Server settings
+host: "0.0.0.0"
+port: 8001
+
+# Device configuration (auto-detected)
+device: "auto"  # Options: auto, cuda, mps, cpu
+
+# Performance settings - optimized for CUDA/GPU
+max_batch_size: 64    # Large batches for GPU efficiency
+batch_timeout: 0.05   # Fast batching for GPU throughput  
+num_workers: 8        # More workers for GPU servers
+
+# Caching settings - larger cache for GPU memory capacity
+enable_caching: true
+cache_size: 2000      # Larger cache for GPU servers
+
+# Optimization settings
+enable_optimization: true
+compile_model: true   # Enable PyTorch 2.0+ compilation for CUDA
+mixed_precision: true # Enable mixed precision for CUDA (automatic fallback)
+
+# Logging
+log_level: "INFO"
+
+# Available scorers (all enabled by default)
+available_scorers:
+  - "bias"
+  - "toxicity" 
+  - "hallucination"
+  - "context_relevance"
+  - "coherence"
+  - "fluency"
+  - "trust"
+  - "pii"
+
+# Device-specific configurations (applied automatically)
+device_configs:
+  cuda:
+    # Optimized for NVIDIA GPUs
+    max_batch_size: 64
+    batch_timeout: 0.05
+    num_workers: 8
+    cache_size: 2000
+    enable_optimization: true
+    compile_model: true
+    mixed_precision: true
+    
+  mps:
+    # Optimized for Apple Silicon (M1/M2/M3)
+    max_batch_size: 32
+    batch_timeout: 0.1
+    num_workers: 6
+    cache_size: 1500
+    enable_optimization: true
+    compile_model: false  # MPS may not support all compile features
+    mixed_precision: false
+    
+  cpu:
+    # Optimized for CPU-only inference
+    max_batch_size: 16
+    batch_timeout: 0.2
+    num_workers: 4  # Will be auto-adjusted based on CPU cores
+    cache_size: 1000
+    enable_optimization: true
+    compile_model: false
+    mixed_precision: false
+
+# Performance testing configurations
+performance_test:
+  # Sequence lengths optimized for different use cases
+  sequence_lengths: [50, 100, 250, 500, 1000, 2000, 4000]
+  
+  # Batch sizes for performance testing
+  batch_sizes:
+    cuda: [1, 2, 4, 8, 16, 32, 64, 128]
+    mps: [1, 2, 4, 8, 16, 32, 64]
+    cpu: [1, 2, 4, 8, 16]
+  
+  # Concurrent request levels
+  concurrent_requests:
+    cuda: [1, 2, 4, 8, 16, 32, 64]
+    mps: [1, 2, 4, 8, 16, 32]
+    cpu: [1, 2, 4, 8, 16]
+  
+  # Test parameters
+  rounds: 3
+  samples_per_length: 8
+  warmup_rounds: 2
+  timeout: 300
+
+# GPU VM deployment settings
+deployment:
+  gcp:
+    instance_name: "ml-gpu-instance"
+    zone: "us-central1-a"
+    
+  # Commands for remote deployment
+  commands:
+    start_server: "~/.local/bin/uv run python weave_scorer_server.py"
+    performance_test: "~/.local/bin/uv run python weave_performance_test.py"
+    
+  # File paths on remote server
+  remote_paths:
+    project_dir: "~/weave-scorers"
+    logs_dir: "~/weave-scorers/logs"
+    results_dir: "~/weave-scorers/results"

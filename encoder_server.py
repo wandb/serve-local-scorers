@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 class ServerConfig:
     """Configuration for the encoder server."""
     model_path: str
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     max_batch_size: int = 32
     batch_timeout: float = 0.1  # seconds

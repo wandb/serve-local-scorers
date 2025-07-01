@@ -1,341 +1,160 @@
-# Encoder Model Server
+# Weave Scorer Server
 
-An example serving solution for Weave Local Models
+An example FastAPI server for [Weave local scorers](https://weave-docs.wandb.ai/guides/evaluation/weave_local_scorers/) with GPU acceleration and device auto-detection.
 
 ## 🚀 Quick Start
 
-## 🚀 Quick Start Example
-
 ```bash
-# 1. Install dependencies
+# 0. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 1. Authenticate with wandb for Weave logging
+wandb login
+
+# 2. Install dependencies
 uv sync
 
-# 2. Download a Weave scorer
-uv run python download_models.py download fluency
-
-# 3. Start the server
-uv run python encoder_server.py --weave-scorer fluency
+# 3. Start server with auto device detection
+uv run python weave_scorer_server.py --scorers fluency bias toxicity
 
 # 4. Test it
-curl -X POST http://localhost:8000/classify \
+curl -X POST http://localhost:8001/score/fluency \
   -H "Content-Type: application/json" \
-  -d '{"text": "This sentence is well-written and clear."}'
+  -d '{"text": "This is a well-written sentence."}'
 ```
 
-## Detailed Options
+## 🎯 Available Scorers
 
-### 1. Install Dependencies
+| Scorer | Description | Use Case |
+|--------|-------------|----------|
+| **fluency** | Text readability and quality | Content evaluation |
+| **bias** | Gender and racial bias detection | Safety filtering |
+| **toxicity** | Multi-dimensional toxicity detection | Content moderation |
+| **coherence** | Text logical flow assessment | Quality control |
+| **hallucination** | AI output accuracy verification | RAG validation |
+| **context_relevance** | Query-context relevance in RAG | Search quality |
+| **trust** | Composite RAG trust scoring | System reliability |
+| **pii** | Personal information detection | Privacy protection |
+
+## 🖥️ Device Support
+
+**Auto-Detection**: Automatically selects optimal device
+- **CUDA**: NVIDIA GPUs (batch_size: 64, workers: 8)
+- **MPS**: Apple Silicon (batch_size: 32, workers: 6) 
+- **CPU**: Fallback mode (batch_size: 16, workers: 4)
+
 ```bash
-uv sync
+# Specific device selection
+uv run python weave_scorer_server.py --device cuda --scorers fluency
+uv run python weave_scorer_server.py --device mps --scorers bias toxicity
 ```
 
-### 2. Start the Server
+## 📋 API Endpoints
 
-**Option A: Using a Weave Local Scorer (Recommended)**
+### Individual Scorers
 ```bash
-# Download and use a specific Weave scorer
-uv run python download_models.py download fluency
-uv run python encoder_server.py --weave-scorer fluency
-```
-
-**Option B: Using custom model path**
-```bash
-uv run python encoder_server.py --model-path models/your-custom-model
-```
-
-**Option C: Using configuration file**
-```bash
-# Edit encoder_config.yaml with your settings
-uv run python encoder_server.py --config encoder_config.yaml
-```
-
-**Option D: Override config with CLI arguments**
-```bash
-uv run python encoder_server.py --config encoder_config.yaml --weave-scorer toxicity --port 8001
-```
-
-### 3. Manage Weave Scorers
-
-```bash
-# List all available Weave scorers
-uv run python download_models.py list
-
-# Download a specific scorer
-uv run python download_models.py download fluency
-
-# Download all scorers
-uv run python download_models.py download all
-
-# Check downloaded scorers
-uv run python download_models.py list --downloaded-only
-
-# Get detailed info about a scorer
-uv run python download_models.py info fluency
-```
-
-### 4. Test the Server
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Model and scorer information
-curl http://localhost:8000/info
-
-# List available scorers
-curl http://localhost:8000/scorers
-
-# Count tokens (validates input length)
-curl -X POST http://localhost:8000/count-tokens \
-  -H "Content-Type: application/json" \
+# Fluency scoring
+curl -X POST http://localhost:8001/score/fluency \
   -d '{"text": "Your text here"}'
 
-# Classify text
-curl -X POST http://localhost:8000/classify \
-  -H "Content-Type: application/json" \
-  -d '{"text": "This is a great product!"}'
+# Bias detection
+curl -X POST http://localhost:8001/score/bias \
+  -d '{"text": ["Text 1", "Text 2"]}'
+
+# Toxicity screening
+curl -X POST http://localhost:8001/score/toxicity \
+  -d '{"text": "Content to evaluate"}'
+
+# PII detection
+curl -X POST http://localhost:8001/score/pii \
+  -d '{"text": "My email is john@example.com", "language": "en"}'
 ```
 
-## 📋 Configuration
-
-### YAML Configuration File (`encoder_config.yaml`)
-
-```yaml
-# Model configuration - use either model_path OR weave_scorer, not both
-# model_path: "models/your-model"        # Custom model path
-weave_scorer: "fluency"                  # Use a Weave local scorer
-
-# Server configuration
-host: "0.0.0.0"
-port: 8000
-
-# Performance configuration
-max_batch_size: 32
-batch_timeout: 0.1
-max_length: 8192
-device: "auto"
-num_workers: 4
-models_dir: "models"
-
-# Optimization configuration
-disable_optimization: false
-compile_model: false
-```
-
-### Command Line Arguments
-
-All YAML settings can be overridden via command line:
-
+### Server Management
 ```bash
-# Using a Weave scorer
-python encoder_server.py \
-  --weave-scorer fluency \
-  --port 8001 \
-  --max-batch-size 64 \
-  --max-length 4096 \
-  --device cuda
+# Health check with device info
+curl http://localhost:8001/health
 
-# Using a custom model
-python encoder_server.py \
-  --model-path models/your-model \
-  --port 8001 \
-  --max-batch-size 64
+# List available scorers
+curl http://localhost:8001/scorers
+
+# Generic scoring endpoint
+curl -X POST http://localhost:8001/score \
+  -d '{"text": "Text here", "scorer_type": "fluency"}'
 ```
 
-**Configuration Precedence**: CLI Arguments > YAML Config > Defaults
+## ⚡ Performance Features
 
-## 🔧 API Endpoints
+### Intelligent Batching
+- **Dynamic batching** with configurable timeouts
+- **Concurrent processing** with asyncio
+- **Device-optimized** batch sizes
 
-### Classification: `POST /classify`
-```json
-{
-  "text": "Your text here",
-  "return_all_scores": false
-}
-```
+### Advanced Caching
+- **Result caching** for repeated queries
+- **FIFO eviction** with configurable size
+- **Request deduplication**
 
-Batch classification:
-```json
-{
-  "text": ["Text 1", "Text 2", "Text 3"],
-  "return_all_scores": false
-}
-```
+### GPU Optimization
+- **Mixed precision** support (CUDA)
+- **Model compilation** (PyTorch 2.0+)
+- **Memory monitoring** and optimization
 
-### Token Counting: `POST /count-tokens`
-```json
-{
-  "text": "Your text here"
-}
-```
+## 🔧 Configuration
 
-Returns:
-```json
-{
-  "text_preview": "Your text here",
-  "token_count": 14,
-  "max_length": 8192,
-  "is_valid": true,
-  "character_count": 67
-}
-```
-
-### Server Info: `GET /info`
-Returns model and server configuration information.
-
-### Health Check: `GET /health`
-Returns server health status.
-
-### Scorer Management: `GET /scorers`
-Returns information about all available Weave scorers:
-```json
-{
-  "available_scorers": {
-    "fluency": {
-      "name": "WeaveFluencyScorerV1",
-      "description": "Measures text readability and natural language quality",
-      "downloaded": true,
-      "valid": true
-    }
-  },
-  "downloaded_count": 2,
-  "total_count": 6,
-  "current_scorer": "fluency"
-}
-```
-
-## 🎯 Available Weave Scorers
-
-| Scorer | Description | Task Type |
-|--------|-------------|-----------|
-| **fluency** | Measures text readability and natural language quality | text-classification |
-| **bias** | Detects bias in text related to gender, race, and origin | text-classification |
-| **toxicity** | Identifies toxic content across five dimensions | text-classification |
-| **hallucination** | Checks for hallucinations in AI system outputs | text-classification |
-| **coherence** | Assesses text coherence and logical flow | text-classification |
-| **context_relevance** | Evaluates relevance of context in RAG systems | token-classification |
-
-## ⚡ Key Features
-
-### Dynamic Batching
-- Automatically groups requests for optimal GPU utilization
-- Configurable batch size and timeout
-- Maintains low latency for single requests
-
-### Cross-Platform Support
-- **macOS**: Uses MPS (Apple Silicon GPU) acceleration
-- **Linux**: CUDA GPU support
-- **CPU**: Optimized multi-threading
-
-### No Silent Truncation 🚨
-- **Rejects oversized inputs** with clear error messages
-- Token counting endpoint for pre-validation
-- Transparent handling of sequence length limits
-- No surprises - you know exactly what text is processed
-
-### Performance Optimizations
-- PyTorch 2.0 compilation support
-- Fast tokenizers (Rust-based)
-- Optimized attention mechanisms
-- Thread pool execution
-
-## 🎯 Performance Characteristics
-
-Based on testing with ModernBERT fluency scorer on Apple Silicon:
-
-- **Throughput**: Up to 112+ texts/sec with optimal batching
-- **Latency**: Sub-100ms for reasonable batch sizes
-- **Scalability**: Handles 16+ concurrent requests efficiently
-- **Sequence Lengths**: Supports up to 8192 tokens (model-dependent)
-
-### Batch Size Performance
-- **Batch 1**: 43 texts/sec, 23ms latency
-- **Batch 32**: 108 texts/sec, 296ms latency
-- **2.5x throughput improvement** with batching
-
-## 🧪 Testing
-
-### Basic Functionality Test
+### Quick Configuration
 ```bash
-python test_no_truncation.py
+# High-throughput GPU setup
+uv run python weave_scorer_server.py \
+  --device cuda \
+  --max-batch-size 128 \
+  --batch-timeout 0.02 \
+  --enable-optimization \
+  --scorers fluency bias toxicity
+
+# Low-latency setup
+uv run python weave_scorer_server.py \
+  --max-batch-size 4 \
+  --batch-timeout 0.01 \
+  --scorers fluency
 ```
 
-### Comprehensive Performance Testing
-```bash
-python performance_test.py --url http://localhost:8000
-```
-
-## 🎯 Example Configurations
-
-### High-Throughput Production
+### YAML Configuration (`gpu_config.yaml`)
 ```yaml
-max_batch_size: 64
-batch_timeout: 0.05
-num_workers: 8
-compile_model: true
+device: "auto"           # auto, cuda, mps, cpu
+max_batch_size: 64      # GPU-optimized batching
+batch_timeout: 0.05     # Fast GPU processing
+enable_optimization: true
+compile_model: true     # PyTorch 2.0+ optimization
 ```
 
-### Low-Latency Production
-```yaml
-max_batch_size: 8
-batch_timeout: 0.01
-num_workers: 2
-```
-
-### Development/Testing
-```yaml
-max_batch_size: 4
-batch_timeout: 0.2
-max_length: 512
-device: "cpu"
-```
 
 ## 🛠 Troubleshooting
 
-### Common Issues
+### Authentication
+```bash
+# Automatic: .env file (included)
+WANDB_API_KEY=your_key_here
 
-**1. Model not found**
-```
-Error: models/your-model is not a local folder
-Solution: Ensure model_path points to a valid model directory
-```
-
-**2. Input too long (No Silent Truncation!)**
-```
-Error: Input validation failed: 1 text(s) exceed maximum length
-Solution: Use /count-tokens endpoint to check length, then:
-  - Truncate inputs to max_length tokens
-  - Increase max_length parameter
-  - Split long texts into chunks
+# Manual login
+wandb login your_api_key
 ```
 
-**3. CUDA out of memory**
+
+## 📁 Project Structure
+
 ```
-Solution: Reduce max_batch_size or max_length
+├── weave_scorer_server.py      # Main server with device detection
+├── utils/
+│   └── device_utils.py         # Device management and optimization
+├── tests/
+│   ├── weave_performance_test.py   # Comprehensive performance testing
+│   ├── test_weave_server.py        # Server functionality tests
+│   └── weave_performance_results.*  # Performance test results
+├── deployment_scripts/        # GPU VM deployment automation
+├── gpu_config.yaml            # GPU-optimized configuration
+├── .env                       # WANDB authentication (included)
+├── OLD_README.md              # Previous encoder server documentation
+├── encoder_server.py          # Original encoder server (preserved)
+└── README.md                  # This file
 ```
-
-## 🔒 Production Deployment
-
-### Recommended Settings
-- Set appropriate `max_length` for your use case
-- Configure `max_batch_size` based on GPU memory
-- Use `compile_model: true` for production workloads
-- Monitor logs for performance optimization
-
-### Security Considerations
-- Run behind a reverse proxy in production
-- Implement rate limiting
-- Validate inputs before sending to server
-- Monitor resource usage
-
-## 📚 Files Overview
-
-**Core Files:**
-- `encoder_server.py` - Main server implementation with Weave scorer support
-- `encoder_config.yaml` - Default configuration
-- `download_models.py` - Weave scorer manager and CLI tool
-- `models/` - Model directory (auto-populated by scorer downloads)
-
-**Testing Files:**
-- `tests/test_basic.py` - Basic functionality test
-- `tests/test_all_scorers.py` - Test all 6 Weave scorers
-- `tests/performance_test.py` - Comprehensive performance testing

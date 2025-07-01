@@ -7,7 +7,7 @@
 weave_scorer: "fluency"  # Use a Weave local scorer (bias, toxicity, fluency, etc.)
 
 # Server configuration
-host: "0.0.0.0"          # Host to bind to
+host: "127.0.0.1"        # Host to bind to (localhost only for security)
 port: 8000               # Port to bind to
 
 # Performance configuration
