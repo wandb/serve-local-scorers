@@ -1,0 +1,41 @@
+# Encoder Server Configuration
+# This file contains default configuration for the encoder model server.
+# Command line arguments will override these settings.
+
+# Model configuration - use either model_path OR weave_scorer, not both
+# model_path: "models/fluency_scorer_tiny_latest"  # Path to model directory or HuggingFace model name
+weave_scorer: "fluency"  # Use a Weave local scorer (bias, toxicity, fluency, etc.)
+
+# Server configuration
+host: "0.0.0.0"          # Host to bind to
+port: 8000               # Port to bind to
+
+# Performance configuration
+max_batch_size: 32       # Maximum batch size for inference
+batch_timeout: 0.1       # Batch timeout in seconds (100ms)
+max_length: 8192         # Maximum sequence length in tokens
+device: "auto"           # Device to use (auto, cpu, cuda, mps)
+num_workers: 4           # Number of worker threads
+
+# Optimization configuration
+disable_optimization: false  # Disable model optimizations
+compile_model: false         # Use torch.compile (PyTorch 2.0+)
+
+# Example configurations for different use cases:
+
+# For high-throughput production:
+# max_batch_size: 64
+# batch_timeout: 0.05
+# num_workers: 8
+# compile_model: true
+
+# For low-latency production:
+# max_batch_size: 8
+# batch_timeout: 0.01
+# num_workers: 2
+
+# For development/testing:
+# max_batch_size: 4
+# batch_timeout: 0.2
+# max_length: 512
+# device: "cpu"
